@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer Quiz Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f4f9;
+    }
+    #question-container {
+      background-color: #fff;
+      padding: 20px;
+      margin: 20px auto;
+      width: 80%;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #score {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    #gameCode {
+      font-size: 18px;
+      margin-top: 20px;
+    }
+    .select-container {
+      margin: 20px 0;
+    }
+    .lobby-container {
+      margin: 20px 0;
+    }
+    #avatarSelection img {
+      width: 50px;
+      height: 50px;
+      margin: 5px;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .playerList {
+      margin-top: 20px;
+    }
+    .player {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Multiplayer Quiz Game</h1>
+
+  <div class="lobby-container" id="lobby-section">
+    <h2>Create or Join a Lobby</h2>
+    <button id="createLobbyButton" onclick="createLobby()">Create Lobby</button>
+    <div>
+      <input type="text" id="joinCodeInput" placeholder="Enter lobby code" />
+      <button onclick="joinLobby()">Join Lobby</button>
+    </div>
+    <div id="lobbyMessage"></div>
+  </div>
+
+  <!-- Player Name and Avatar Selection -->
+  <div id="playerSetup" style="display:none;">
+    <h2>Set Your Name and Avatar</h2>
+    <input type="text" id="playerName" placeholder="Enter your name" />
+    <div id="avatarSelection">
+      <img src="https://via.placeholder.com/50/0000FF/808080?Text=1" onclick="selectAvatar('avatar1')" alt="Avatar 1" />
+      <img src="https://via.placeholder.com/50/FF0000/808080?Text=2" onclick="selectAvatar('avatar2')" alt="Avatar 2" />
+      <img src="https://via.placeholder.com/50/FFFF00/808080?Text=3" onclick="selectAvatar('avatar3')" alt="Avatar 3" />
+      <img src="https://via.placeholder.com/50/00FF00/808080?Text=4" onclick="selectAvatar('avatar4')" alt="Avatar 4" />
+    </div>
+    <button id="joinLobbyButton" onclick="finalizePlayerSetup()">Join Lobby</button>
+  </div>
+
+  <div class="select-container">
+    <label for="subject">Select Subject:</label>
+    <select id="subject">
+      <option value="math">Math</option>
+      <option value="science">Science</option>
+    </select>
+  </div>
+  <div class="select-container">
+    <label for="topic">Select Topic:</label>
+    <select id="topic">
+      <option value="algebra">Algebra</option>
+      <option value="physics">Physics</option>
+    </select>
+  </div>
+  <div class="select-container">
+    <label for="grade">Select Grade:</label>
+    <select id="grade">
+      <option value="1">Grade 1</option>
+      <option value="2">Grade 2</option>
+      <option value="3">Grade 3</option>
+      <option value="4">Grade 4</option>
+      <option value="5">Grade 5</option>
+      <option value="6">Grade 6</option>
+      <option value="7">Grade 7</option>
+      <option value="8">Grade 8</option>
+      <option value="9">Grade 9</option>
+      <option value="10">Grade 10</option>
+    </select>
+  </div>
+
+  <div id="question-container" style="display:none;">
+    <h2 id="question"></h2>
+    <div id="options"></div>
+    <button id="nextButton" onclick="nextQuestion()">Next Question</button>
+  </div>
+  <div id="score" style="display:none;">
+    Score: <span id="scoreValue">0</span>
+  </div>
+  <div id="gameCode" style="display:none;">
+    Game Code: <span id="code">XXXX</span>
+  </div>
+
+  <script>
+    const questionsData = {
+      math: {
+        1: Array.from({ length: 25 }, (_, index) => ({
+          question: `Math Question ${index + 1}`,
+          options: [`Option A`, `Option B`, `Option C`, `Option D`],
+          answer: `Option A`, // Placeholder answers, modify as needed
+          difficulty: index < 10 ? 'easy' : (index < 20 ? 'medium' : 'hard'),
+        })),
+        2: Array.from({ length: 25 }, (_, index) => ({
+          question: `Math Question ${index + 1}`,
+          options: [`Option A`, `Option B`, `Option C`, `Option D`],
+          answer: `Option A`, // Placeholder answers, modify as needed
+          difficulty: index < 10 ? 'easy' : (index < 20 ? 'medium' : 'hard'),
+        })),
+      },
+      science: {
+        1: Array.from({ length: 25 }, (_, index) => ({
+          question: `Science Question ${index + 1}`,
+          options: [`Option A`, `Option B`, `Option C`, `Option D`],
+          answer: `Option A`, // Placeholder answers, modify as needed
+          difficulty: index < 10 ? 'easy' : (index < 20 ? 'medium' : 'hard'),
+        })),
+      },
+    };
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let gameCode = "";
+    let currentSubject = "math";
+    let currentGrade = 1;
+    let playerName = "";
+    let playerAvatar = "";
+    let startTime = 0;
+    let questionTimeLimit = 30; // seconds to answer each question
+
+    let players = [];
+    let currentPlayerIndex = 0;
+
+    function displayQuestion() {
+      const questions = questionsData[currentSubject][currentGrade];
+      const question = questions[currentQuestionIndex];
+      document.getElementById("question").innerText = question.question;
+      const optionsContainer = document.getElementById("options");
+      optionsContainer.innerHTML = "";
+
+      question.options.forEach(option => {
+        const button = document.createElement("button");
+        button.innerText = option;
+        button.onclick = () => checkAnswer(option);
+        optionsContainer.appendChild(button);
+      });
+      startTime = Date.now(); // Start the timer for this question
+      document.getElementById("question-container").style.display = "block";
+      setTimeout(() => checkAnswer(null), questionTimeLimit * 1000); // Automatically check answer after time limit
+    }
+
+    function checkAnswer(selectedAnswer) {
+      const question = questionsData[currentSubject][currentGrade][currentQuestionIndex];
+      const timeTaken = Math.max(1, Math.floor((Date.now() - startTime) / 1000)); // Time taken in seconds
+      let points = 0;
+
+      if (selectedAnswer === question.answer) {
+        points = getPoints(question.difficulty, timeTaken);
+        score += points;
+        document.getElementById("scoreValue").innerText = score;
+      }
+
+      document.getElementById("nextButton").style.display = "block";
+    }
+
+    function getPoints(difficulty, timeTaken) {
+      let basePoints = difficulty === 'hard' ? 20 : difficulty === 'medium' ? 15 : 10;
+      let timeBonus = Math.max(1, 30 - timeTaken); // 30 is max time, gives bonus for faster answers
+      return basePoints + timeBonus;
+    }
+
+    function nextQuestion() {
+      currentQuestionIndex++;
+      if (currentQuestionIndex < questionsData[currentSubject][currentGrade].length) {
+        displayQuestion();
+        document.getElementById("nextButton").style.display = "none";
+      } else {
+        alert("Game Over! Your final score is " + score);
+      }
+    }
+
+    // Functionality for lobby creation, joining, and setting up avatars remains the same...
+
+    window.onload = function() {
+      document.getElementById("createLobbyButton").style.display = "inline-block";
+      document.getElementById("startGameButton").style.display = "none"; // Initially hide the start button
+      document.getElementById("playerSetup").style.display = "block";
+    };
+  </script>
+
+</body>
+</html>
